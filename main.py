@@ -8,7 +8,7 @@
 
 import os
 import urllib3
-import requests, bs4
+import requests, bs4, sys
 import simplejson as json
 from datetime import datetime
 from bs4 import BeautifulSoup
@@ -25,37 +25,27 @@ class Post:
 
         return string
 
-    def serialize(self):
-        amap = {}
-        amap['id'] = self.id
-        amap['date'] = self.date
-        return amap
 
     def format_slack(self):
         if self.url:
-            return '{ "text": "'+ str(self.title) +'", "attachments": [ { "text": "Likes: ' + str(self.likes) + '\nComments: ' + str(self.comments) + '\nAuthor: ' + str(self.author) + '", "image_url": "' + str(self.url) +'" } ] }'
-        return '{ "text": "'+self.msg+'", "unfurl_media": true }'
+            return '{ "text": "'+ str(self.title) +'", "attachments": [ { "text": "Likes: ' + str(self.likes) + '\nComments: ' + str(self.comments) + '\nAuthor: ' + str(self.author) + '\nhttps://dribbble.com' + str(self.link) + '", "image_url": "' + str(self.url) +'" } ] }'
+        return '{ "text": "' + str(self.title) + '", "unfurl_media": true }'
 
 class DribbbleCrawler:
     # -------------------------------------------
     # Purpose: Send the post hooks to slacks API.
     # Passed-in: post object.
-    def send(self, post):
+    def send(self, post, hook):
         # Put together the POST payload, and save emojis by encode using utf-8
         body = post.format_slack()
 
-        # api_hook = 'https://slack.com/api/chat.postMessage?token=xoxp-155842872885-155048107520-523810353302-6e3a2f35aa4d2a78a80a734b3d2514fa&channel=test&text=\'another test\''
-        hook = 'https://hooks.slack.com/services/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'
-        # hook = 'https://hooks.slack.com/services/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'
-
         # Shoot the message to slack using the hook we setup at <workspace>.slack.com
-        r = requests.post(hook, headers={'Content-Type': 'application/json'},
-                                data=body.encode('utf-8'))
+        r = requests.post(hook, headers={'Content-Type': 'application/json'}, data=body.encode('utf-8'))
 
         write_to_file(post)
 
 
-    def start(self, url):
+    def start(self, url, hook):
         page_source = get_source(url)
         # page_source = get_HTML('topPosts.html')
 
@@ -84,6 +74,9 @@ class DribbbleCrawler:
             # Get post Src
             post_srcset = li.picture.source.get('srcset', None)
 
+            # Get the ladder end of the link (working link requires the dribbble.com portion too which is added in format_slack())
+            post_link = li.a.get('href', None)
+
             # Get post Likes
             if li.ul.li.a:
                 post_likes = li.ul.li.a.get_text()
@@ -100,13 +93,14 @@ class DribbbleCrawler:
                 title = post_title,
                 author = post_author,
                 url = post_srcset,
+                link = post_link,
                 likes = post_likes,
                 comments = post_comments,
                 views = post_views,
                 date = str(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
             )
 
-            self.send(post)
+            self.send(post, hook)
             print(post)
             break
 
@@ -161,12 +155,17 @@ def match_recent(post_id):
                 return True
         return False
     else:
-        print ('hit')
         f = open('recent_posts.txt', 'w+')
         f.write('[]')
         f.close()
+        match_recent(post_id)
 
 
 if __name__ == "__main__":
+    # Ensure we got enough arguements
+    if len(sys.argv) < 2:
+        sys.exit(1)
+
+
     crawler = DribbbleCrawler()
-    crawler.start('https://dribbble.com/shots?timeframe=week')
+    crawler.start('https://dribbble.com/shots?timeframe=week', sys.argv[1])
