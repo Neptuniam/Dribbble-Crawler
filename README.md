@@ -11,10 +11,25 @@ pipenv install
 
 ### Running
 
-Execute the crawler by running:
-
+Execute the crawler manually by running:
 ```
-pipenv run python3 main.py
+pipenv python3 main.py <slackHook>
+```
+
+
+or
+
+
+Set up an environment variable file to use the included makefile
+```
+*create/open a file called '.env' that contains the following*
+HOOK='<INSERT YOUR MAIN HOOK HERE>'
+DEVHOOK='<INSERT YOUR DEV HOOK HERE (OPTIONAL, USED FOR make toMe)>'
+```
+
+Run the script
+```
+make
 ```
 
 ## License

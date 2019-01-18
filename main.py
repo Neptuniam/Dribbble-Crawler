@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-#----------------------------------------------------------------------------
-# Author      : Liam Jones
-# Description : A simple python web scraper to pull Dribbble content into slack.
-#               ...
-#----------------------------------------------------------------------------
-#
+"""
+A simple web crawler using the requests and BeautifulSoup Libraries
+This script pulls top posts from the Dribbble site and sends them to my Slack channel through their API
+This project includes a makefile to make running easy, but requires a specified unique Slack token
+
+Use 'make help' for more information on the classes and their functions
+"""
 
 import os
-import urllib3
 import requests, bs4, sys
 import simplejson as json
 from datetime import datetime
@@ -27,15 +27,18 @@ class Post:
 
 
     def format_slack(self):
-        if self.url:
-            return '{ "text": "'+ str(self.title) +'", "attachments": [ { "text": "Likes: ' + str(self.likes) + '\nComments: ' + str(self.comments) + '\nAuthor: ' + str(self.author) + '\nhttps://dribbble.com' + str(self.link) + '", "image_url": "' + str(self.url) +'" } ] }'
-        return '{ "text": "' + str(self.title) + '", "unfurl_media": true }'
+        return '{ "text": "'+ str(self.title) +'", "attachments": [ { "text": "Likes: ' + str(self.likes) + '\nComments: ' + str(self.comments) + '\nAuthor: ' + str(self.author) + '\nhttps://dribbble.com' + str(self.link) + '", "image_url": "' + str(self.url) +'" } ] }'
 
 class DribbbleCrawler:
-    # -------------------------------------------
-    # Purpose: Send the post hooks to slacks API.
-    # Passed-in: post object.
     def send(self, post, hook):
+        """
+        Send the Post object to Slacks API
+
+        Args:
+            post: Post object containing all the attributes of the Dribbble post
+            hook: Specifies the Slack Hook for the API to send the post to
+        """
+
         # Put together the POST payload, and save emojis by encode using utf-8
         body = post.format_slack()
 
@@ -46,11 +49,20 @@ class DribbbleCrawler:
 
 
     def start(self, url, hook):
+        """
+        Performs the actual crawling of the Dribbble top posts page
+
+        Args:
+            url: Specifies the url to crawl
+            hook: Specifies the Slack Hook for the API to send the post to
+        """
+
+        # Get the source code, either from a request of the page or saved html file
         page_source = get_source(url)
         # page_source = get_HTML('topPosts.html')
 
+        # Use BeautifulSoup to nicely skip to the post list
         soup = BeautifulSoup(page_source, 'html.parser')
-
         # Skip to the posts grouping
         items = soup.select('li.group')
 
@@ -59,7 +71,7 @@ class DribbbleCrawler:
             # Get the post ID
             post_id = li['id']
 
-            # TODO: Check that this is not the most recently posted post
+            # Checks the 'recent_posts.txt' file to check for the current id, if it has been posted, skip to the next post
             if match_recent(post_id) == True:
                 continue
 
@@ -100,12 +112,20 @@ class DribbbleCrawler:
                 date = str(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
             )
 
+            # Send the post to the Slack API and print its attributes to the console
             self.send(post, hook)
             print(post)
             break
 
 
 def get_HTML(file):
+    """
+    Retrieves the source code from a specified saved html file
+
+    args:
+        file: The Specified html to retrieve the source code from
+    """
+
     f = open(file, 'r')
     lines = f.readlines()
     f.close()
@@ -113,26 +133,46 @@ def get_HTML(file):
 
 
 def get_source(url):
-    return requests.get(url).text
+    """
+    Retrieves the source code from a specified url usign the requests library
+
+    args:
+        url: The Specified url to retrieve the source code from
+    """
+
+    headers = {}
+    headers['X-Requested-With'] = 'XMLHttpRequest'
+
+    return requests.get(url, headers=headers).text
 
 
 def write_to_file(post):
+    """
+    Writes the new post to the recent_posts history file to prevent double posting top posts
+
+    args:
+        post: The post object to store in history
+    """
+
+    # Gets the current date to prevent posts over a week from being stored (prevents massive backlog of posts)
     cur_date = datetime.now()
 
-    # if os.path.exists("recent_posts.txt"):
     with open('recent_posts.txt', 'r+') as f:
-        line = f.readline()
-
-        list = json.loads(line)
+        # Read the current history in from the file and load it into the dictionary
+        list = json.loads(f.readline())
+        # Append the new post
         list.append({'id': post.id, 'date': post.date})
 
+        # Creates a new list ignoring old posts
+        # This keeps the history managable, I don't need every post ever posted just the possible repeats
         new_list = []
         for item in list:
             new_date = datetime.strptime(item['date'],"%Y-%m-%d %H:%M:%S")
 
-            if (cur_date - new_date).days < 7:
+            if (cur_date - new_date).days < 8:
                 new_list.append(item)
 
+        # Overwrite the history file with the new list
         f.seek(0)
         f.write(json.dumps(new_list))
         f.truncate()
@@ -141,6 +181,16 @@ def write_to_file(post):
 
 
 def match_recent(post_id):
+    """
+    Reads the history files and attempts to match the current id
+
+    args:
+        post_id: The id of the possible new post to ensure it hasn't already been sent to the Slack Channel
+
+    return: Returns True/False depending on whether or not a match was made (True=Match was made)
+    """
+
+    # Ensures that the recent_posts file can be found
     if os.path.exists("recent_posts.txt"):
         # Open file and read existing JSON object
         f = open('recent_posts.txt', 'r')
@@ -154,6 +204,7 @@ def match_recent(post_id):
             if item['id'] == post_id:
                 return True
         return False
+    # If the file was not found, create it and recall the function
     else:
         f = open('recent_posts.txt', 'w+')
         f.write('[]')
