@@ -27,7 +27,8 @@ class Post:
 
 
     def format_slack(self):
-        return '{ "text": "'+ str(self.title) +'", "attachments": [ { "text": "Likes: ' + str(self.likes) + '\nComments: ' + str(self.comments) + '\nAuthor: ' + str(self.author) + '\nhttps://dribbble.com' + str(self.link) + '", "image_url": "' + str(self.url) +'" } ] }'
+        return '{ "text": "'+ str(self.title) +'", "attachments": [ { "text": "Author: ' + str(self.author) + '\nLikes: ' + str(self.likes) + '\nComments: ' + str(self.comments) + '\nViews: ' + str(self.views) + '\nhttps://dribbble.com' + str(self.link) + '", "image_url": "' + str(self.url) +'" } ] }'
+
 
 class DribbbleCrawler:
     def send(self, post, hook):
@@ -59,7 +60,7 @@ class DribbbleCrawler:
 
         # Get the source code, either from a request of the page or saved html file
         page_source = get_source(url)
-        # page_source = get_HTML('topPosts.html')
+        # page_source = get_HTML('pageNew.html')
 
         # Use BeautifulSoup to nicely skip to the post list
         soup = BeautifulSoup(page_source, 'html.parser')
@@ -68,6 +69,8 @@ class DribbbleCrawler:
 
         # Iterate through each of the posts
         for li in items:
+            media_rating = []
+
             # Get the post ID
             post_id = li['id']
 
@@ -76,12 +79,10 @@ class DribbbleCrawler:
                 continue
 
             # Get the post title
-            if li.strong:
-                post_title = li.strong.get_text().strip()
+            post_title = li.strong.get_text().strip() if li.strong else None
 
             # Get author
-            if li.h2.a:
-                post_author = li.h2.a.get_text()
+            post_author = li.h2.a.get_text() if li.h2.a else None
 
             # Get post Src
             post_srcset = li.picture.source.get('srcset', None)
@@ -89,16 +90,12 @@ class DribbbleCrawler:
             # Get the ladder end of the link (working link requires the dribbble.com portion too which is added in format_slack())
             post_link = li.a.get('href', None)
 
-            # Get post Likes
-            if li.ul.li.a:
-                post_likes = li.ul.li.a.get_text()
+            # Find the toops group list class, then get each li item from that list
+            tools_group = li.find("ul", {"class": "tools"})
+            tools_li = tools_group.select('li')
 
-            # Get Post Comments
-            if li.ul.li.a:
-                post_comments = li.ul.span.get_text().strip()
-
-            # TODO: Get post views
-            post_views = li.ul.get('views', None)
+            for inner_li in tools_li:
+                media_rating.append(inner_li.span.get_text().strip())
 
             post = Post(
                 id = post_id,
@@ -106,9 +103,9 @@ class DribbbleCrawler:
                 author = post_author,
                 url = post_srcset,
                 link = post_link,
-                likes = post_likes,
-                comments = post_comments,
-                views = post_views,
+                likes = media_rating[0],
+                comments = media_rating[1],
+                views = media_rating[2],
                 date = str(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
             )
 
@@ -169,7 +166,7 @@ def write_to_file(post):
         for item in list:
             new_date = datetime.strptime(item['date'],"%Y-%m-%d %H:%M:%S")
 
-            if (cur_date - new_date).days < 8:
+            if (cur_date - new_date).days < 14:
                 new_list.append(item)
 
         # Overwrite the history file with the new list
