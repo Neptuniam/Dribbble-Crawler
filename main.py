@@ -27,7 +27,7 @@ class Post:
 
 
     def format_slack(self):
-        return '{ "text": "'+ str(self.title) +'", "attachments": [ { "text": "Author: ' + str(self.author) + '\nLikes: ' + str(self.likes) + '\nComments: ' + str(self.comments) + '\nViews: ' + str(self.views) + '\nhttps://dribbble.com' + str(self.link) + '", "image_url": "' + str(self.url) +'" } ] }'
+        return '{ "text": "'+ str(self.title) +'", "attachments": [ { "text": "Author: ' + str(self.author) + '\nLikes: ' + str(self.likes) + '\nComments: ' + str(self.comments) + '\nhttps://dribbble.com' + str(self.link) + '", "image_url": "' + str(self.url) +'" } ] }'
 
 
 class DribbbleCrawler:
@@ -97,6 +97,8 @@ class DribbbleCrawler:
             for inner_li in tools_li:
                 media_rating.append(inner_li.span.get_text().strip())
 
+            print(media_rating)
+
             post = Post(
                 id = post_id,
                 title = post_title,
@@ -105,7 +107,6 @@ class DribbbleCrawler:
                 link = post_link,
                 likes = media_rating[0],
                 comments = media_rating[1],
-                views = media_rating[2],
                 date = str(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
             )
 
