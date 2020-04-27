@@ -79,10 +79,10 @@ class DribbbleCrawler:
                 continue
 
             # Get the post title
-            post_title = li.strong.get_text().strip() if li.strong else None
+            post_title = li.strong.get_text().strip() if li.strong and li.strong else None
 
             # Get author
-            post_author = li.h2.a.get_text() if li.h2.a else None
+            post_author = li.h2.a.get_text() if li.h2 and li.h2.a and li.h2.a else None
 
             # Get post Src
             post_srcset = li.picture.source.get('srcset', None)
@@ -94,10 +94,11 @@ class DribbbleCrawler:
             tools_group = li.find("ul", {"class": "tools"})
             tools_li = tools_group.select('li')
 
-            for inner_li in tools_li:
-                media_rating.append(inner_li.span.get_text().strip())
+            # TODO/GROSS: Idk what they did to media ratings
+            tools_li = [tools_li[0], tools_li[2]]
 
-            print(media_rating)
+            for inner_li in tools_li:
+                media_rating.append(inner_li.span.get_text().strip() if inner_li.span else "N/A")
 
             post = Post(
                 id = post_id,
