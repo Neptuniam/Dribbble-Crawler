@@ -95,7 +95,7 @@ class DribbbleCrawler:
             post_link = li.a.get('href', None)
 
             # Get the current number of likes on the post
-            likes = select_and_clean(li, '.js-shot-likes-container')
+            likes = select_and_clean(li, '.js-shot-likes-count')
 
             # Get the current number of comments on the post
             comments = select_and_clean(li, '.js-shot-comments-count')
