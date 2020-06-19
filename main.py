@@ -65,24 +65,28 @@ class DribbbleCrawler:
         # Use BeautifulSoup to nicely skip to the post list
         soup = BeautifulSoup(page_source, 'html.parser')
         # Skip to the posts grouping
-        items = soup.select('li.group')
+        items = soup.select('li.shot-thumbnail')
 
         # Iterate through each of the posts
         for li in items:
-            media_rating = []
-
-            # Get the post ID
+           # Get the post ID
             post_id = li['id']
 
             # Checks the 'recent_posts.txt' file to check for the current id, if it has been posted, skip to the next post
-            if match_recent(post_id) == True:
+            if not li or match_recent(post_id) == True:
                 continue
+            
+            # Inner function to sanitize and fetch attributes by HTML element and CSS class
+            def select_and_clean(ele, selector):
+                selection = ele.select_one(selector)
+
+                return selection.get_text().strip() if selection else None    
 
             # Get the post title
-            post_title = li.strong.get_text().strip() if li.strong and li.strong else None
+            post_title = select_and_clean(li, '.shot-title')
 
             # Get author
-            post_author = li.h2.a.get_text() if li.h2 and li.h2.a and li.h2.a else None
+            post_author = select_and_clean(li, '.display-name')
 
             # Get post Src
             post_srcset = li.picture.source.get('srcset', None)
@@ -90,15 +94,11 @@ class DribbbleCrawler:
             # Get the ladder end of the link (working link requires the dribbble.com portion too which is added in format_slack())
             post_link = li.a.get('href', None)
 
-            # Find the toops group list class, then get each li item from that list
-            tools_group = li.find("ul", {"class": "tools"})
-            tools_li = tools_group.select('li')
+            # Get the current number of likes on the post
+            likes = select_and_clean(li, '.js-shot-likes-container')
 
-            # TODO/GROSS: Idk what they did to media ratings
-            tools_li = [tools_li[0], tools_li[2]]
-
-            for inner_li in tools_li:
-                media_rating.append(inner_li.span.get_text().strip() if inner_li.span else "N/A")
+            # Get the current number of comments on the post
+            comments = select_and_clean(li, '.js-shot-comments-count')
 
             post = Post(
                 id = post_id,
@@ -106,8 +106,8 @@ class DribbbleCrawler:
                 author = post_author,
                 url = post_srcset,
                 link = post_link,
-                likes = media_rating[0],
-                comments = media_rating[1],
+                likes = likes,
+                comments = comments,
                 date = str(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
             )
 
