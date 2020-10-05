@@ -89,7 +89,7 @@ class DribbbleCrawler:
             post_author = select_and_clean(li, '.display-name')
 
             # Get post Src
-            post_srcset = li.picture.source.get('srcset', None)
+            post_srcset = li.img.get('src', '').split('?',1)
 
             # Get the ladder end of the link (working link requires the dribbble.com portion too which is added in format_slack())
             post_link = li.a.get('href', None)
